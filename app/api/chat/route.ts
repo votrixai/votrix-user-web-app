@@ -18,18 +18,8 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { data: userRecord } = await supabase
-    .from("users")
-    .select("agent_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!userRecord?.agent_id) {
-    return new Response("Agent not provisioned", { status: 409 });
-  }
-
   const body = await request.json();
-  const { messages, id: sessionId, trigger } = body;
+  const { messages, session_id: sessionId, trigger } = body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return new Response("Invalid request", { status: 400 });
@@ -48,11 +38,19 @@ export async function POST(request: Request) {
     execute: async ({ writer }) => {
       const textPartId = generateId();
       let textStarted = false;
+      let textEnded = false;
       let currentToolCallId: string | null = null;
+
+      const endText = () => {
+        if (textStarted && !textEnded) {
+          writer.write({ type: "text-end", id: textPartId });
+          textEnded = true;
+        }
+      };
 
       try {
         const backendRes = await backendFetch(
-          `/agents/${userRecord.agent_id}/chat`,
+          `/chat`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -130,16 +128,12 @@ export async function POST(request: Request) {
               }
 
               case "done": {
-                if (textStarted) {
-                  writer.write({ type: "text-end", id: textPartId });
-                }
+                endText();
                 return;
               }
 
               case "error": {
-                if (textStarted) {
-                  writer.write({ type: "text-end", id: textPartId });
-                }
+                endText();
                 writer.write({
                   type: "error",
                   errorText: data.message ?? "An unknown error occurred",
@@ -150,12 +144,10 @@ export async function POST(request: Request) {
           }
         }
       } finally {
-        if (textStarted) {
-          try {
-            writer.write({ type: "text-end", id: textPartId });
-          } catch {
-            // Writer may already be closed
-          }
+        try {
+          endText();
+        } catch {
+          // Writer may already be closed
         }
       }
     },

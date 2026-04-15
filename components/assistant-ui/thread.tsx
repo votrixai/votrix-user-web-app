@@ -246,13 +246,13 @@ const UserMessage: FC = () => {
       data-role="user"
     >
       <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-        <AuiIf condition={(s) => s.composer.type !== "edit"}>
+        <AuiIf condition={(s) => !s.composer.isEditing}>
           <div className="aui-user-message-content wrap-break-word peer rounded-2xl bg-muted px-4 py-2.5 text-foreground empty:hidden">
             <MessagePrimitive.Parts />
           </div>
           <UserActionBar />
         </AuiIf>
-        <AuiIf condition={(s) => s.composer.type === "edit"}>
+        <AuiIf condition={(s) => s.composer.isEditing}>
           <EditComposer />
         </AuiIf>
       </div>
