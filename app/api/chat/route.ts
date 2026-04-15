@@ -4,11 +4,9 @@ import {
   generateId,
 } from "ai";
 import { createClient } from "@/lib/supabase/server";
+import { backendFetch } from "@/lib/backend";
 
 export const maxDuration = 300;
-
-const BACKEND_URL = process.env.BACKEND_URL!;
-const AGENT_SLUG = process.env.AGENT_SLUG!;
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -18,6 +16,16 @@ export async function POST(request: Request) {
 
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { data: userRecord } = await supabase
+    .from("users")
+    .select("agent_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!userRecord?.agent_id) {
+    return new Response("Agent not provisioned", { status: 409 });
   }
 
   const body = await request.json();
@@ -43,13 +51,11 @@ export async function POST(request: Request) {
       let currentToolCallId: string | null = null;
 
       try {
-        const backendRes = await fetch(
-          `${BACKEND_URL}/agents/${AGENT_SLUG}/chat`,
+        const backendRes = await backendFetch(
+          `/agents/${userRecord.agent_id}/chat`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              user_id: user.id,
               session_id: sessionId,
               message: isRegenerate
                 ? "Please regenerate your last response."

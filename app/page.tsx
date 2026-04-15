@@ -1,9 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { backendFetch } from "@/lib/backend";
 import Chat from "@/components/chat";
 import type { UIMessage } from "ai";
 import type { SessionResponse, SessionDetailResponse } from "@/lib/models/session";
-
-const BACKEND_URL = process.env.BACKEND_URL!;
 
 export default async function Home() {
   const supabase = await createClient();
@@ -27,30 +26,29 @@ export default async function Home() {
     );
   }
 
-  const { initialMessages, sessionId } = await loadHistory(user!.id);
+  const { initialMessages, sessionId } = await loadHistory();
 
-  // Always have a valid UUID so the backend can track the session
   const effectiveSessionId = sessionId ?? crypto.randomUUID();
 
   return <Chat initialMessages={initialMessages} sessionId={effectiveSessionId} />;
 }
 
-async function loadHistory(
-  userId: string,
-): Promise<{ initialMessages: UIMessage[]; sessionId: string | null }> {
+async function loadHistory(): Promise<{
+  initialMessages: UIMessage[];
+  sessionId: string | null;
+}> {
   try {
-    const sessionsRes = await fetch(`${BACKEND_URL}/users/${userId}/sessions`);
+    const sessionsRes = await backendFetch(`/sessions`);
     if (!sessionsRes.ok) return { initialMessages: [], sessionId: null };
 
     const sessions = (await sessionsRes.json()) as SessionResponse[];
     if (!sessions.length) return { initialMessages: [], sessionId: null };
 
-    // Take the most recent session
     const latest = sessions.sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )[0];
 
-    const detailRes = await fetch(`${BACKEND_URL}/sessions/${latest.id}`);
+    const detailRes = await backendFetch(`/sessions/${latest.id}`);
     if (!detailRes.ok) return { initialMessages: [], sessionId: String(latest.id) };
 
     const detail = (await detailRes.json()) as SessionDetailResponse;
