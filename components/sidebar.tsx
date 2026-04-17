@@ -50,6 +50,12 @@ export default function Sidebar({ email, sessions, agents }: Props) {
     : sessions.filter((s) => s.agent_slug === filter);
   const groups = groupSessions(filtered);
 
+  const agentNameBySlug = new Map(agents.map((a) => [a.slug, a.name]));
+  const labelFor = (s: SessionResponse) =>
+    s.provider_session_title ||
+    (s.agent_slug ? agentNameBySlug.get(s.agent_slug) : undefined) ||
+    "New chat";
+
   const handleNewChat = (agentSlug: string) => {
     setShowAgentPicker(false);
     startCreating(async () => {
@@ -102,22 +108,6 @@ export default function Sidebar({ email, sessions, agents }: Props) {
         )}
       </div>
 
-      {/* Agent filter */}
-      <div className="px-3 pb-2">
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
-        >
-          <option value="all">All agents</option>
-          {agents.map((a) => (
-            <option key={a.slug} value={a.slug}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {/* Session list */}
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
         {groups.length === 0 && (
@@ -138,9 +128,9 @@ export default function Sidebar({ email, sessions, agents }: Props) {
                         ? "bg-muted font-medium text-foreground"
                         : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
-                    title={s.display_name || "Untitled"}
+                    title={labelFor(s)}
                   >
-                    {s.display_name || "Untitled"}
+                    {labelFor(s)}
                   </Link>
                 </li>
               ))}

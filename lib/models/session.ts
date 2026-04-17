@@ -1,7 +1,7 @@
 export interface SessionResponse {
   id: string;
   user_id: string;
-  display_name: string;
+  provider_session_title: string | null;
   agent_slug: string | null;
   created_at: string;
 }
@@ -9,7 +9,6 @@ export interface SessionResponse {
 export interface SessionCreateResponse {
   id: string;
   user_id: string;
-  display_name: string;
   agent_slug: string | null;
   session_id: string;
   created_at: string;
@@ -32,5 +31,4 @@ export interface SessionDetailResponse {
 
 export interface SessionCreateRequest {
   agent_slug: string;
-  display_name?: string;
 }
