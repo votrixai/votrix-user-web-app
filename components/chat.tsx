@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import {
   useChatRuntime,
@@ -17,6 +18,7 @@ export default function Chat({
   initialMessages: UIMessage[];
   sessionId: string;
 }) {
+  const router = useRouter();
   const transport = useMemo(
     () =>
       new AssistantChatTransport({
@@ -26,10 +28,18 @@ export default function Chat({
     [sessionId],
   );
 
+  const sidebarRefreshed = useRef(false);
+  const onFinish = useCallback(() => {
+    if (sidebarRefreshed.current) return;
+    sidebarRefreshed.current = true;
+    router.refresh();
+  }, [router]);
+
   const runtime = useChatRuntime({
     transport,
     messages: initialMessages,
     id: sessionId,
+    onFinish,
   });
 
   return (
