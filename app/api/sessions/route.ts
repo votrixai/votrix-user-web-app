@@ -11,10 +11,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const res = await backendFetch("/sessions", {
     method: "POST",
-    body: JSON.stringify({
-      agent_slug: body.agent_slug,
-      display_name: body.display_name ?? "",
-    }),
+    body: JSON.stringify({ agent_slug: body.agent_slug }),
   });
   const text = await res.text();
   return new Response(text, {
