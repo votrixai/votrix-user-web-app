@@ -187,13 +187,35 @@ const MessageError: FC = () => {
   );
 };
 
+const ThinkingIndicator: FC = () => {
+  return (
+    <div className="flex items-center gap-2 py-1 text-muted-foreground text-sm">
+      <span className="relative flex size-3 items-center justify-center">
+        <span className="absolute inline-flex size-2 animate-ping rounded-full bg-foreground opacity-60" />
+        <span className="relative inline-flex size-2 rounded-full bg-foreground" />
+      </span>
+      <span>Thinking…</span>
+    </div>
+  );
+};
+
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root
-      className="aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-3 duration-150"
+      className="aui-assistant-message-root fade-in slide-in-from-bottom-1 relative mx-auto w-full max-w-(--thread-max-width) animate-in py-1 duration-150"
       data-role="assistant"
     >
       <div className="aui-assistant-message-content wrap-break-word px-2 text-foreground leading-relaxed">
+        <AuiIf
+          condition={(s) =>
+            s.message.status?.type === "running" &&
+            !s.message.parts.some(
+              (p) => p.type === "text" && p.text.length > 0,
+            )
+          }
+        >
+          <ThinkingIndicator />
+        </AuiIf>
         <MessagePrimitive.Parts>
           {({ part }) => {
             if (part.type === "text") return <MarkdownText />;
@@ -242,7 +264,7 @@ const AssistantActionBar: FC = () => {
 const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root
-      className="aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-2 px-2 py-3 duration-150 [&:where(>*)]:col-start-2"
+      className="aui-user-message-root fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-(--thread-max-width) animate-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] content-start gap-y-1 px-2 py-1 duration-150 [&:where(>*)]:col-start-2"
       data-role="user"
     >
       <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
@@ -250,7 +272,9 @@ const UserMessage: FC = () => {
           <div className="aui-user-message-content wrap-break-word peer rounded-2xl bg-muted px-4 py-2.5 text-foreground empty:hidden">
             <MessagePrimitive.Parts />
           </div>
-          <UserActionBar />
+          <div className="flex min-h-7 justify-end">
+            <UserActionBar />
+          </div>
         </AuiIf>
         <AuiIf condition={(s) => s.composer.isEditing}>
           <EditComposer />

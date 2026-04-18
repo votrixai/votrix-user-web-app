@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, LogOut, Bot, ChevronDown } from "lucide-react";
+import { Plus, LogOut, Bot, ChevronDown, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { SessionResponse } from "@/lib/models/session";
 import type { AgentConfig } from "@/lib/models/agent";
@@ -42,23 +42,56 @@ export default function Sidebar({ email, sessions, agents }: Props) {
   const params = useParams<{ sessionId?: string }>();
   const activeId = params?.sessionId;
   const [filter, setFilter] = useState<string>("all");
-  const [creating, startCreating] = useTransition();
+  const [creating, setCreating] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(
+    null,
+  );
+  const [confirm, setConfirm] = useState<{ id: string; title: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(null);
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("contextmenu", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("contextmenu", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
+
+  useEffect(() => {
+    if (!confirm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirm(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirm]);
 
   const filtered = filter === "all"
     ? sessions
     : sessions.filter((s) => s.agent_slug === filter);
   const groups = groupSessions(filtered);
 
-  const agentNameBySlug = new Map(agents.map((a) => [a.slug, a.name]));
-  const labelFor = (s: SessionResponse) =>
-    s.provider_session_title ||
-    (s.agent_slug ? agentNameBySlug.get(s.agent_slug) : undefined) ||
-    "New chat";
+  const labelFor = (s: SessionResponse) => {
+    if (s.agent_slug && s.provider_session_title) {
+      return `${s.agent_slug}: ${s.provider_session_title}`;
+    }
+    return s.agent_slug || s.provider_session_title || "New chat";
+  };
 
-  const handleNewChat = (agentSlug: string) => {
+  const handleNewChat = async (agentSlug: string) => {
     setShowAgentPicker(false);
-    startCreating(async () => {
+    setCreating(true);
+    try {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,7 +101,24 @@ export default function Sidebar({ email, sessions, agents }: Props) {
       const data = await res.json();
       router.push(`/c/${data.id}`);
       router.refresh();
-    });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const openDeleteConfirm = (s: SessionResponse) => {
+    setMenu(null);
+    setConfirm({ id: s.id, title: labelFor(s) });
+  };
+
+  const confirmDelete = () => {
+    if (!confirm) return;
+    const id = confirm.id;
+    setConfirm(null);
+    router.push("/");
+    void fetch(`/api/sessions/${id}`, { method: "DELETE" }).then(() =>
+      router.refresh(),
+    );
   };
 
   const handleSignOut = async () => {
@@ -87,8 +137,17 @@ export default function Sidebar({ email, sessions, agents }: Props) {
           className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
         >
           <span className="flex items-center gap-2">
-            <Plus className="size-4" />
-            {creating ? "Creating…" : "New chat"}
+            <span className="relative flex size-4 items-center justify-center">
+              {creating ? (
+                <>
+                  <span className="absolute inline-flex size-2 animate-ping rounded-full bg-foreground opacity-60" />
+                  <span className="relative inline-flex size-2 rounded-full bg-foreground" />
+                </>
+              ) : (
+                <Plus className="size-4" />
+              )}
+            </span>
+            {creating ? "Thinking…" : "New chat"}
           </span>
           <ChevronDown className="size-4 text-muted-foreground" />
         </button>
@@ -120,7 +179,14 @@ export default function Sidebar({ email, sessions, agents }: Props) {
             </h3>
             <ul className="space-y-0.5">
               {g.sessions.map((s) => (
-                <li key={s.id}>
+                <li
+                  key={s.id}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setMenu({ id: s.id, x: e.clientX, y: e.clientY });
+                  }}
+                >
                   <Link
                     href={`/c/${s.id}`}
                     className={`block truncate rounded-md px-2 py-1.5 text-sm transition-colors ${
@@ -138,6 +204,59 @@ export default function Sidebar({ email, sessions, agents }: Props) {
           </div>
         ))}
       </nav>
+
+      {menu && (
+        <div
+          className="fixed z-50 min-w-40 overflow-hidden rounded-md border border-border bg-background shadow-lg"
+          style={{ top: menu.y, left: menu.x }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button
+            onClick={() => {
+              const s = sessions.find((x) => x.id === menu.id);
+              if (s) openDeleteConfirm(s);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-muted"
+          >
+            <Trash2 className="size-4" />
+            Delete chat
+          </button>
+        </div>
+      )}
+
+      {confirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setConfirm(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold">Delete chat?</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This will delete <span className="font-medium text-foreground">{confirm.title}</span>.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirm(null)}
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="border-t border-border p-3">
