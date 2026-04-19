@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { messages, session_id: sessionId, trigger } = body;
+  const { messages, session_id: sessionId, trigger, attachments } = body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return new Response("Invalid request", { status: 400 });
@@ -58,6 +58,7 @@ export async function POST(request: Request) {
               message: isRegenerate
                 ? "Please regenerate your last response."
                 : userText,
+              attachments: isRegenerate ? [] : (attachments ?? []),
             }),
             signal: request.signal,
           },
@@ -124,6 +125,28 @@ export async function POST(request: Request) {
                   });
                   currentToolCallId = null;
                 }
+                break;
+              }
+
+              case "file": {
+                const fileToolId = generateId();
+                writer.write({
+                  type: "tool-input-available",
+                  toolCallId: fileToolId,
+                  toolName: "__file_output__",
+                  input: {
+                    file_id: data.file_id,
+                    filename: data.filename,
+                    mime_type: data.mime_type,
+                  },
+                  providerExecuted: true,
+                });
+                writer.write({
+                  type: "tool-output-available",
+                  toolCallId: fileToolId,
+                  output: "ready",
+                  providerExecuted: true,
+                });
                 break;
               }
 

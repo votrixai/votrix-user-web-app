@@ -29,12 +29,20 @@ export interface ErrorEvent {
   message: string;
 }
 
+export interface FileEvent {
+  type: "file";
+  file_id: string;
+  filename: string | null;
+  mime_type: string | null;
+}
+
 export type ChatSSEEvent =
   | TokenEvent
   | ToolStartEvent
   | ToolEndEvent
   | DoneEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | FileEvent;
 
 // ---------------------------------------------------------------------------
 // Anthropic Managed Agents — raw event schemas (backend-only, for reference)
