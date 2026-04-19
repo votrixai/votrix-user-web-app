@@ -36,16 +36,24 @@ export async function POST(request: Request) {
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
-      const textPartId = generateId();
+      let textPartId = generateId();
       let textStarted = false;
       let textEnded = false;
-      let currentToolCallId: string | null = null;
+      // backend tool_call_id → frontend toolCallId (1:1, may differ in format)
+      const toolCallIds = new Map<string, string>();
 
       const endText = () => {
         if (textStarted && !textEnded) {
           writer.write({ type: "text-end", id: textPartId });
           textEnded = true;
         }
+      };
+
+      const resetText = () => {
+        endText();
+        textPartId = generateId();
+        textStarted = false;
+        textEnded = false;
       };
 
       try {
@@ -101,10 +109,12 @@ export async function POST(request: Request) {
               }
 
               case "tool_start": {
-                currentToolCallId = generateId();
+                resetText();
+                const tcId = generateId();
+                toolCallIds.set(data.tool_call_id, tcId);
                 writer.write({
                   type: "tool-input-available",
-                  toolCallId: currentToolCallId,
+                  toolCallId: tcId,
                   toolName: data.name,
                   input: data.input ?? {},
                   providerExecuted: true,
@@ -113,22 +123,24 @@ export async function POST(request: Request) {
               }
 
               case "tool_end": {
-                if (currentToolCallId) {
+                const tcId = toolCallIds.get(data.tool_call_id);
+                if (tcId) {
                   writer.write({
                     type: "tool-output-available",
-                    toolCallId: currentToolCallId,
+                    toolCallId: tcId,
                     output:
                       typeof data.output === "string"
                         ? data.output
                         : JSON.stringify(data.output),
                     providerExecuted: true,
                   });
-                  currentToolCallId = null;
+                  toolCallIds.delete(data.tool_call_id);
                 }
                 break;
               }
 
               case "file": {
+                resetText();
                 const fileToolId = generateId();
                 writer.write({
                   type: "tool-input-available",

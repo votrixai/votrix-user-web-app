@@ -21,7 +21,7 @@ export default async function AuthedLayout({
 
   return (
     <div className="flex h-dvh">
-      <Sidebar email={user?.email ?? ""} sessions={sessions} agents={agents} />
+      <Sidebar email={user?.email ?? ""} userId={user?.id ?? ""} sessions={sessions} agents={agents} />
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>
   );

@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Plus, LogOut, Bot, ChevronDown, Trash2, Files } from "lucide-react";
+import { Plus, LogOut, Bot, ChevronDown, Trash2, Files, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { SessionResponse } from "@/lib/models/session";
 import type { AgentConfig } from "@/lib/models/agent";
 
 type Props = {
   email: string;
+  userId: string;
   sessions: SessionResponse[];
   agents: AgentConfig[];
 };
@@ -37,7 +38,7 @@ function groupSessions(sessions: SessionResponse[]): Group[] {
     .map(([label, arr]) => ({ label, sessions: arr }));
 }
 
-export default function Sidebar({ email, sessions, agents }: Props) {
+export default function Sidebar({ email, userId, sessions, agents }: Props) {
   const router = useRouter();
   const params = useParams<{ sessionId?: string }>();
   const pathname = usePathname();
@@ -52,6 +53,7 @@ export default function Sidebar({ email, sessions, agents }: Props) {
   const [confirm, setConfirm] = useState<{ id: string; title: string } | null>(
     null,
   );
+  const [deleting, setDeleting] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!menu) return;
@@ -84,10 +86,11 @@ export default function Sidebar({ email, sessions, agents }: Props) {
   const groups = groupSessions(filtered);
 
   const labelFor = (s: SessionResponse) => {
-    if (s.agent_slug && s.provider_session_title) {
-      return `${s.agent_slug}: ${s.provider_session_title}`;
+    const shortId = s.id.slice(0, 8);
+    if (s.provider_session_title) {
+      return s.provider_session_title;
     }
-    return s.agent_slug || s.provider_session_title || "New chat";
+    return s.agent_slug ? `${s.agent_slug} · ${shortId}` : shortId;
   };
 
   const handleNewChat = async (agentSlug: string) => {
@@ -113,14 +116,22 @@ export default function Sidebar({ email, sessions, agents }: Props) {
     setConfirm({ id: s.id, title: labelFor(s) });
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!confirm) return;
     const id = confirm.id;
     setConfirm(null);
-    router.push("/");
-    void fetch(`/api/sessions/${id}`, { method: "DELETE" }).then(() =>
-      router.refresh(),
-    );
+    if (activeId === id) router.push("/");
+    setDeleting((prev) => new Set(prev).add(id));
+    try {
+      await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+      router.refresh();
+    } finally {
+      setDeleting((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
   const handleSignOut = async () => {
@@ -206,14 +217,19 @@ export default function Sidebar({ email, sessions, agents }: Props) {
                 >
                   <Link
                     href={`/c/${s.id}`}
-                    className={`block truncate rounded-md px-2 py-1.5 text-sm transition-colors ${
-                      activeId === s.id
-                        ? "bg-muted font-medium text-foreground"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                      deleting.has(s.id)
+                        ? "pointer-events-none opacity-50"
+                        : activeId === s.id
+                          ? "bg-muted font-medium text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }`}
                     title={labelFor(s)}
                   >
-                    {labelFor(s)}
+                    {deleting.has(s.id) ? (
+                      <Loader2 className="size-3 shrink-0 animate-spin" />
+                    ) : null}
+                    <span className="truncate">{labelFor(s)}</span>
                   </Link>
                 </li>
               ))}
@@ -288,6 +304,9 @@ export default function Sidebar({ email, sessions, agents }: Props) {
           >
             <LogOut className="size-4" />
           </button>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground/60" title={userId}>
+          {userId}
         </div>
       </div>
     </aside>
