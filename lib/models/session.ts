@@ -32,3 +32,9 @@ export interface SessionDetailResponse {
 export interface SessionCreateRequest {
   agent_slug: string;
 }
+
+export interface SessionFileResponse {
+  file_id: string;
+  filename: string | null;
+  mime_type: string | null;
+}

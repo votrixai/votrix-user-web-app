@@ -8,16 +8,20 @@ import {
   AssistantChatTransport,
 } from "@assistant-ui/react-ai-sdk";
 import { Thread } from "@/components/assistant-ui/thread";
+import { SessionFilesPanel } from "@/components/session-files-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AttachmentContext, type PendingAttachment } from "@/lib/attachment-context";
+import type { SessionFileResponse } from "@/lib/models/session";
 import type { UIMessage } from "ai";
 
 export default function Chat({
   initialMessages,
   sessionId,
+  sessionFiles = [],
 }: {
   initialMessages: UIMessage[];
   sessionId: string;
+  sessionFiles?: SessionFileResponse[];
 }) {
   const router = useRouter();
 
@@ -97,6 +101,7 @@ export default function Chat({
       <AssistantRuntimeProvider runtime={runtime}>
         <TooltipProvider>
           <main className="h-full">
+            {sessionFiles.length > 0 && <SessionFilesPanel files={sessionFiles} />}
             <Thread />
           </main>
         </TooltipProvider>
