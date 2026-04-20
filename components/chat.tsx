@@ -72,11 +72,8 @@ export default function Chat({
     [sessionId],
   );
 
-  const sidebarRefreshed = useRef(false);
   const onFinish = useCallback(() => {
     clearAttachments();
-    if (sidebarRefreshed.current) return;
-    sidebarRefreshed.current = true;
     router.refresh();
   }, [router, clearAttachments]);
 

@@ -287,6 +287,8 @@ const ComposerAction: FC<{ onSend?: () => void }> = ({ onSend }) => {
 const FileDownloadCard: FC<{ input: Record<string, unknown> }> = ({ input }) => {
   const fileId = input.file_id as string;
   const filename = (input.filename as string | null) ?? "Download file";
+  const parentFileId = input.parent_file_id as string | null | undefined;
+  const isEdit = typeof parentFileId === "string" && parentFileId.length > 0;
   return (
     <a
       href={`/api/files/${fileId}/content`}
@@ -295,6 +297,14 @@ const FileDownloadCard: FC<{ input: Record<string, unknown> }> = ({ input }) => 
     >
       <DownloadIcon className="size-4 shrink-0 text-muted-foreground" />
       <span className="max-w-48 truncate">{filename}</span>
+      {isEdit && (
+        <span
+          className="rounded-full border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+          title={`Edited version of ${parentFileId}`}
+        >
+          edited
+        </span>
+      )}
     </a>
   );
 };

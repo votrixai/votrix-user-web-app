@@ -150,6 +150,7 @@ export async function POST(request: Request) {
                     file_id: data.file_id,
                     filename: data.filename,
                     mime_type: data.mime_type,
+                    parent_file_id: data.parent_file_id,
                   },
                   providerExecuted: true,
                 });

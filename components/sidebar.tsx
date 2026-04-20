@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams, usePathname } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, LogOut, Bot, ChevronDown, Trash2, Files, Loader2 } from "lucide-react";
+import { Plus, LogOut, Bot, ChevronDown, Trash2, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { SessionResponse } from "@/lib/models/session";
 import type { AgentConfig } from "@/lib/models/agent";
@@ -41,9 +41,7 @@ function groupSessions(sessions: SessionResponse[]): Group[] {
 export default function Sidebar({ email, userId, sessions, agents }: Props) {
   const router = useRouter();
   const params = useParams<{ sessionId?: string }>();
-  const pathname = usePathname();
   const activeId = params?.sessionId;
-  const filesActive = pathname === "/files";
   const [filter, setFilter] = useState<string>("all");
   const [creating, setCreating] = useState(false);
   const [showAgentPicker, setShowAgentPicker] = useState(false);
@@ -178,21 +176,6 @@ export default function Sidebar({ email, userId, sessions, agents }: Props) {
             ))}
           </div>
         )}
-      </div>
-
-      {/* Files workspace link */}
-      <div className="px-3">
-        <Link
-          href="/files"
-          className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-            filesActive
-              ? "bg-muted font-medium text-foreground"
-              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-          }`}
-        >
-          <Files className="size-4" />
-          Files
-        </Link>
       </div>
 
       {/* Session list */}
