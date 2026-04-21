@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { backendFetch } from "@/lib/backend";
 import Sidebar from "@/components/sidebar";
 import type { SessionResponse } from "@/lib/models/session";
-import type { AgentConfig } from "@/lib/models/agent";
 
 export default async function AuthedLayout({
   children,
@@ -14,14 +13,11 @@ export default async function AuthedLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [sessions, agents] = await Promise.all([
-    fetchJson<SessionResponse[]>("/sessions", []),
-    fetchJson<AgentConfig[]>("/agents", []),
-  ]);
+  const sessions = await fetchJson<SessionResponse[]>("/sessions", []);
 
   return (
     <div className="flex h-dvh">
-      <Sidebar email={user?.email ?? ""} userId={user?.id ?? ""} sessions={sessions} agents={agents} />
+      <Sidebar email={user?.email ?? ""} userId={user?.id ?? ""} sessions={sessions} />
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>
   );

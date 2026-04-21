@@ -3,16 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Plus, LogOut, Bot, ChevronDown, Trash2, Files, Loader2 } from "lucide-react";
+import { LogOut, Trash2, Store, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { SessionResponse } from "@/lib/models/session";
-import type { AgentConfig } from "@/lib/models/agent";
 
 type Props = {
   email: string;
   userId: string;
   sessions: SessionResponse[];
-  agents: AgentConfig[];
 };
 
 type Group = { label: string; sessions: SessionResponse[] };
@@ -38,15 +36,13 @@ function groupSessions(sessions: SessionResponse[]): Group[] {
     .map(([label, arr]) => ({ label, sessions: arr }));
 }
 
-export default function Sidebar({ email, userId, sessions, agents }: Props) {
+export default function Sidebar({ email, userId, sessions }: Props) {
   const router = useRouter();
   const params = useParams<{ sessionId?: string }>();
   const pathname = usePathname();
   const activeId = params?.sessionId;
-  const filesActive = pathname === "/files";
+  const marketplaceActive = pathname === "/marketplace";
   const [filter, setFilter] = useState<string>("all");
-  const [creating, setCreating] = useState(false);
-  const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(
     null,
   );
@@ -93,24 +89,6 @@ export default function Sidebar({ email, userId, sessions, agents }: Props) {
     return s.agent_slug ? `${s.agent_slug} · ${shortId}` : shortId;
   };
 
-  const handleNewChat = async (agentSlug: string) => {
-    setShowAgentPicker(false);
-    setCreating(true);
-    try {
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent_slug: agentSlug }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      router.push(`/c/${data.id}`);
-      router.refresh();
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const openDeleteConfirm = (s: SessionResponse) => {
     setMenu(null);
     setConfirm({ id: s.id, title: labelFor(s) });
@@ -142,56 +120,17 @@ export default function Sidebar({ email, userId, sessions, agents }: Props) {
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border bg-muted/30">
-      {/* New chat button with agent picker */}
-      <div className="relative p-3">
-        <button
-          onClick={() => setShowAgentPicker((v) => !v)}
-          disabled={creating}
-          className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
-        >
-          <span className="flex items-center gap-2">
-            <span className="relative flex size-4 items-center justify-center">
-              {creating ? (
-                <>
-                  <span className="absolute inline-flex size-2 animate-ping rounded-full bg-foreground opacity-60" />
-                  <span className="relative inline-flex size-2 rounded-full bg-foreground" />
-                </>
-              ) : (
-                <Plus className="size-4" />
-              )}
-            </span>
-            {creating ? "Thinking…" : "New chat"}
-          </span>
-          <ChevronDown className="size-4 text-muted-foreground" />
-        </button>
-        {showAgentPicker && (
-          <div className="absolute left-3 right-3 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg">
-            {agents.map((a) => (
-              <button
-                key={a.slug}
-                onClick={() => handleNewChat(a.slug)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-              >
-                <Bot className="size-4 text-muted-foreground" />
-                {a.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Files workspace link */}
-      <div className="px-3">
+      <div className="space-y-0.5 p-3">
         <Link
-          href="/files"
+          href="/marketplace"
           className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-            filesActive
+            marketplaceActive
               ? "bg-muted font-medium text-foreground"
               : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
           }`}
         >
-          <Files className="size-4" />
-          Files
+          <Store className="size-4" />
+          Marketplace
         </Link>
       </div>
 
