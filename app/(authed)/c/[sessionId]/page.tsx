@@ -1,7 +1,7 @@
 import { backendFetch } from "@/lib/backend";
 import Chat from "@/components/chat";
 import type { UIMessage } from "ai";
-import type { SessionDetailResponse, SessionEventResponse } from "@/lib/models/session";
+import type { SessionDetailResponse, SessionEventResponse, SessionFileResponse } from "@/lib/models/session";
 import { notFound } from "next/navigation";
 
 export default async function SessionPage({
@@ -11,13 +11,17 @@ export default async function SessionPage({
 }) {
   const { sessionId } = await params;
 
-  const res = await backendFetch(`/sessions/${sessionId}`);
-  if (!res.ok) notFound();
-  const detail = (await res.json()) as SessionDetailResponse;
+  const [detailRes, filesRes] = await Promise.all([
+    backendFetch(`/sessions/${sessionId}`),
+    backendFetch(`/sessions/${sessionId}/files`),
+  ]);
+  if (!detailRes.ok) notFound();
+  const detail = (await detailRes.json()) as SessionDetailResponse;
+  const files: SessionFileResponse[] = filesRes.ok ? await filesRes.json() : [];
 
   const initialMessages = buildInitialMessages(detail.id, detail.events);
 
-  return <Chat initialMessages={initialMessages} sessionId={sessionId} />;
+  return <Chat initialMessages={initialMessages} sessionId={sessionId} sessionFiles={files} />;
 }
 
 function buildInitialMessages(
