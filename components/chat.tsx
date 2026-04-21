@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import {
@@ -18,31 +18,33 @@ export default function Chat({
   initialMessages,
   sessionId,
   sessionFiles = [],
+  awaitingResponse = false,
 }: {
   initialMessages: UIMessage[];
   sessionId: string;
   sessionFiles?: SessionFileResponse[];
+  awaitingResponse?: boolean;
 }) {
   const router = useRouter();
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const attachmentsRef = useRef<PendingAttachment[]>([]);
+  const [requestAttachments, setRequestAttachments] = useState<PendingAttachment[]>([]);
 
   const addAttachment = useCallback((att: PendingAttachment) => {
-    const next = [...attachmentsRef.current, att];
-    attachmentsRef.current = next;
+    const next = [...requestAttachments, att];
     setAttachments(next);
-  }, []);
+    setRequestAttachments(next);
+  }, [requestAttachments]);
 
   const removeAttachment = useCallback((fileId: string) => {
-    const next = attachmentsRef.current.filter((a) => a.file_id !== fileId);
-    attachmentsRef.current = next;
+    const next = requestAttachments.filter((a) => a.file_id !== fileId);
     setAttachments(next);
-  }, []);
+    setRequestAttachments(next);
+  }, [requestAttachments]);
 
   const clearAttachments = useCallback(() => {
-    attachmentsRef.current = [];
     setAttachments([]);
+    setRequestAttachments([]);
   }, []);
 
   // Clears only the UI state (chips disappear immediately on send).
@@ -65,7 +67,7 @@ export default function Chat({
             trigger: options.trigger,
             messageId: options.messageId,
             metadata: options.requestMetadata,
-            attachments: attachmentsRef.current.map(({ file_id, content_type, filename }) => ({
+            attachments: requestAttachments.map(({ file_id, content_type, filename }) => ({
               file_id,
               content_type,
               filename,
@@ -73,7 +75,7 @@ export default function Chat({
           },
         }),
       }),
-    [sessionId],
+    [requestAttachments, sessionId],
   );
 
   const sidebarRefreshed = useRef(false);
@@ -95,6 +97,18 @@ export default function Chat({
     () => ({ attachments, addAttachment, removeAttachment, clearAttachments, clearAttachmentsUI }),
     [attachments, addAttachment, removeAttachment, clearAttachments, clearAttachmentsUI],
   );
+
+  useEffect(() => {
+    if (!awaitingResponse) return;
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    }, 2500);
+
+    return () => window.clearInterval(intervalId);
+  }, [awaitingResponse, router]);
 
   return (
     <AttachmentContext.Provider value={attachmentContextValue}>
