@@ -40,6 +40,7 @@ export const Thread: FC = () => {
         ["--thread-max-width" as string]: "44rem",
         ["--composer-radius" as string]: "24px",
         ["--composer-padding" as string]: "10px",
+        ["--message-composer-gap" as string]: "12px",
       }}
     >
       <ThreadPrimitive.Viewport
@@ -50,11 +51,13 @@ export const Thread: FC = () => {
           <ThreadWelcome />
         </AuiIf>
 
-        <ThreadPrimitive.Messages>
-          {() => <ThreadMessage />}
-        </ThreadPrimitive.Messages>
+        <div className="mx-auto flex min-h-0 w-full max-w-(--thread-max-width) flex-1 flex-col justify-end">
+          <ThreadPrimitive.Messages>
+            {() => <ThreadMessage />}
+          </ThreadPrimitive.Messages>
+        </div>
 
-        <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-(--thread-max-width) flex-col gap-4 overflow-visible rounded-t-(--composer-radius) bg-background pb-4 md:pb-6">
+        <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-4 overflow-visible rounded-t-(--composer-radius) bg-background pt-(--message-composer-gap) pb-8 md:pb-10">
           <ThreadScrollToBottom />
           <Composer />
         </ThreadPrimitive.ViewportFooter>

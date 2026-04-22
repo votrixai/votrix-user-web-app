@@ -39,12 +39,30 @@ export async function POST(request: Request) {
       let textPartId = generateId();
       let textStarted = false;
       let textEnded = false;
+      let clientDisconnected = request.signal.aborted;
       // backend tool_call_id → frontend toolCallId (1:1, may differ in format)
       const toolCallIds = new Map<string, string>();
 
+      const safeWrite = (chunk: Parameters<typeof writer.write>[0]) => {
+        if (clientDisconnected) return;
+        try {
+          writer.write(chunk);
+        } catch {
+          clientDisconnected = true;
+        }
+      };
+
+      request.signal.addEventListener(
+        "abort",
+        () => {
+          clientDisconnected = true;
+        },
+        { once: true },
+      );
+
       const endText = () => {
         if (textStarted && !textEnded) {
-          writer.write({ type: "text-end", id: textPartId });
+          safeWrite({ type: "text-end", id: textPartId });
           textEnded = true;
         }
       };
@@ -68,13 +86,12 @@ export async function POST(request: Request) {
                 : userText,
               attachments: isRegenerate ? [] : (attachments ?? []),
             }),
-            signal: request.signal,
           },
         );
 
         if (!backendRes.ok) {
           const errorText = await backendRes.text();
-          writer.write({ type: "error", errorText });
+          safeWrite({ type: "error", errorText });
           return;
         }
 
@@ -84,7 +101,7 @@ export async function POST(request: Request) {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done || request.signal?.aborted) break;
+          if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
@@ -97,10 +114,10 @@ export async function POST(request: Request) {
             switch (data.type) {
               case "token": {
                 if (!textStarted) {
-                  writer.write({ type: "text-start", id: textPartId });
+                  safeWrite({ type: "text-start", id: textPartId });
                   textStarted = true;
                 }
-                writer.write({
+                safeWrite({
                   type: "text-delta",
                   delta: data.content,
                   id: textPartId,
@@ -112,7 +129,7 @@ export async function POST(request: Request) {
                 resetText();
                 const tcId = generateId();
                 toolCallIds.set(data.tool_call_id, tcId);
-                writer.write({
+                safeWrite({
                   type: "tool-input-available",
                   toolCallId: tcId,
                   toolName: data.name,
@@ -125,7 +142,7 @@ export async function POST(request: Request) {
               case "tool_end": {
                 const tcId = toolCallIds.get(data.tool_call_id);
                 if (tcId) {
-                  writer.write({
+                  safeWrite({
                     type: "tool-output-available",
                     toolCallId: tcId,
                     output:
@@ -142,7 +159,7 @@ export async function POST(request: Request) {
               case "file": {
                 resetText();
                 const fileToolId = generateId();
-                writer.write({
+                safeWrite({
                   type: "tool-input-available",
                   toolCallId: fileToolId,
                   toolName: "__file_output__",
@@ -153,7 +170,7 @@ export async function POST(request: Request) {
                   },
                   providerExecuted: true,
                 });
-                writer.write({
+                safeWrite({
                   type: "tool-output-available",
                   toolCallId: fileToolId,
                   output: "ready",
@@ -169,7 +186,7 @@ export async function POST(request: Request) {
 
               case "error": {
                 endText();
-                writer.write({
+                safeWrite({
                   type: "error",
                   errorText: data.message ?? "An unknown error occurred",
                 });

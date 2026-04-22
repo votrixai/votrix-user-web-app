@@ -14,6 +14,13 @@ export async function POST(request: Request) {
     body: JSON.stringify({ agent_slug: body.agent_slug }),
   });
   const text = await res.text();
+  if (!res.ok) {
+    console.error("backend POST /sessions failed", {
+      status: res.status,
+      agent_slug: body.agent_slug,
+      body: text,
+    });
+  }
   return new Response(text, {
     status: res.status,
     headers: { "Content-Type": "application/json" },

@@ -20,8 +20,16 @@ export default async function SessionPage({
   const files: SessionFileResponse[] = filesRes.ok ? await filesRes.json() : [];
 
   const initialMessages = buildInitialMessages(detail.id, detail.events);
+  const awaitingResponse = isAwaitingAssistantResponse(detail.events);
 
-  return <Chat initialMessages={initialMessages} sessionId={sessionId} sessionFiles={files} />;
+  return (
+    <Chat
+      initialMessages={initialMessages}
+      sessionId={sessionId}
+      sessionFiles={files}
+      awaitingResponse={awaitingResponse}
+    />
+  );
 }
 
 function buildInitialMessages(
@@ -72,4 +80,21 @@ function buildInitialMessages(
   }
 
   return messages;
+}
+
+function isAwaitingAssistantResponse(events: SessionEventResponse[]) {
+  let awaitingResponse = false;
+
+  for (const event of events) {
+    if (event.type === "user_message") {
+      awaitingResponse = true;
+      continue;
+    }
+
+    if (event.type === "ai_message") {
+      awaitingResponse = false;
+    }
+  }
+
+  return awaitingResponse;
 }
