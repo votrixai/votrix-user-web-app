@@ -7,6 +7,7 @@ import {
   useChatRuntime,
   AssistantChatTransport,
 } from "@assistant-ui/react-ai-sdk";
+import { PanelRightCloseIcon, PanelRightOpenIcon } from "lucide-react";
 import { Thread } from "@/components/assistant-ui/thread";
 import { SessionFilesPanel } from "@/components/session-files-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,6 +30,7 @@ export default function Chat({
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [requestAttachments, setRequestAttachments] = useState<PendingAttachment[]>([]);
+  const [filesOpen, setFilesOpen] = useState(false);
 
   const addAttachment = useCallback((att: PendingAttachment) => {
     const next = [...requestAttachments, att];
@@ -114,9 +116,47 @@ export default function Chat({
     <AttachmentContext.Provider value={attachmentContextValue}>
       <AssistantRuntimeProvider runtime={runtime}>
         <TooltipProvider>
-          <main className="h-full">
-            {sessionFiles.length > 0 && <SessionFilesPanel files={sessionFiles} />}
-            <Thread />
+          <main className="flex h-full min-h-0 bg-background">
+            <div className="relative flex min-w-0 flex-1 flex-col">
+              {sessionFiles.length > 0 && (
+                <div className="absolute top-4 right-4 z-20">
+                  <button
+                    type="button"
+                    onClick={() => setFilesOpen((open) => !open)}
+                    className="inline-flex items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur transition-colors hover:bg-accent"
+                    aria-expanded={filesOpen}
+                    aria-controls="session-files-panel"
+                  >
+                    {filesOpen ? (
+                      <PanelRightCloseIcon className="size-4" />
+                    ) : (
+                      <PanelRightOpenIcon className="size-4" />
+                    )}
+                    <span>View Files</span>
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      {sessionFiles.length}
+                    </span>
+                  </button>
+                </div>
+              )}
+              <Thread />
+            </div>
+
+            {sessionFiles.length > 0 && filesOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30 bg-black/40 md:hidden"
+                  onClick={() => setFilesOpen(false)}
+                  aria-hidden="true"
+                />
+                <aside
+                  id="session-files-panel"
+                  className="fixed inset-y-0 right-0 z-40 w-full max-w-sm border-l bg-background shadow-xl md:static md:z-0 md:w-80 md:max-w-none md:shrink-0 md:shadow-none"
+                >
+                  <SessionFilesPanel files={sessionFiles} onClose={() => setFilesOpen(false)} />
+                </aside>
+              </>
+            )}
           </main>
         </TooltipProvider>
       </AssistantRuntimeProvider>
