@@ -76,6 +76,30 @@
   --ring: oklch(0.439 0 0);
 }
 
+/* Always-visible scrollbar for the chat thread viewport */
+.aui-thread-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
+.aui-thread-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.aui-thread-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aui-thread-viewport::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+  border-radius: 9999px;
+  opacity: 0.4;
+}
+
+.aui-thread-viewport::-webkit-scrollbar-thumb:hover {
+  background-color: var(--foreground);
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     --background: oklch(0.145 0 0);

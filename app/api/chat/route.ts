@@ -179,6 +179,26 @@ export async function POST(request: Request) {
                 break;
               }
 
+              case "preview": {
+                resetText();
+                const previewToolId = generateId();
+                const { type: _type, ...previewInput } = data;
+                safeWrite({
+                  type: "tool-input-available",
+                  toolCallId: previewToolId,
+                  toolName: "__preview__",
+                  input: previewInput,
+                  providerExecuted: true,
+                });
+                safeWrite({
+                  type: "tool-output-available",
+                  toolCallId: previewToolId,
+                  output: "displayed",
+                  providerExecuted: true,
+                });
+                break;
+              }
+
               case "done": {
                 endText();
                 return;

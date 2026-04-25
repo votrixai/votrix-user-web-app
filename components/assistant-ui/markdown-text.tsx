@@ -111,17 +111,33 @@ const defaultComponents = memoizeMarkdownComponents({
       {...props}
     />
   ),
-  a: ({ className, ...props }) => (
-    <a
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cn(
-        "aui-md-a text-primary underline underline-offset-2 hover:text-primary/80",
-        className,
-      )}
-      {...props}
-    />
-  ),
+  a: ({ className, href, children, ...props }) => {
+    if (href && /\.(mp4|webm|mov)(\?.*)?$/i.test(href)) {
+      return (
+        <video
+          src={href}
+          controls
+          playsInline
+          className="my-2 block mx-auto rounded-lg"
+          style={{ maxHeight: "400px", maxWidth: "100%" }}
+        />
+      );
+    }
+    return (
+      <a
+        target="_blank"
+        rel="noopener noreferrer"
+        href={href}
+        className={cn(
+          "aui-md-a text-primary underline underline-offset-2 hover:text-primary/80",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </a>
+    );
+  },
   blockquote: ({ className, ...props }) => (
     <blockquote
       className={cn(

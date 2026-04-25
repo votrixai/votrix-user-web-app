@@ -1,4 +1,5 @@
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { Preview } from "@/components/assistant-ui/preview";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
@@ -30,39 +31,129 @@ import {
   SquareIcon,
   XIcon,
 } from "lucide-react";
-import { type FC, useRef, useState } from "react";
+import { type FC, createContext, useCallback, useContext, useRef, useState } from "react";
+
+// ---------------------------------------------------------------------------
+// Upload context — shared between Thread (drag zone) and Composer (button)
+// ---------------------------------------------------------------------------
+
+type UploadCtx = {
+  uploading: boolean;
+  uploadFile: (file: File) => Promise<void>;
+};
+
+const UploadContext = createContext<UploadCtx>({
+  uploading: false,
+  uploadFile: async () => {},
+});
+
+// ---------------------------------------------------------------------------
+// Thread
+// ---------------------------------------------------------------------------
 
 export const Thread: FC = () => {
+  const { addAttachment } = useAttachments();
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  const uploadFile = useCallback(
+    async (file: File) => {
+      setUploading(true);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/files", { method: "POST", body: form });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        const data = await res.json();
+        addAttachment({
+          file_id: data.file_id,
+          filename: data.filename,
+          content_type: file.type.startsWith("image/") ? "image" : "document",
+        });
+      } catch (err) {
+        console.error("File upload failed:", err);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [addAttachment],
+  );
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current += 1;
+    if (dragCounter.current === 1) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await uploadFile(file);
+  };
+
   return (
-    <ThreadPrimitive.Root
-      className="aui-root aui-thread-root @container flex h-full flex-col bg-background"
-      style={{
-        ["--thread-max-width" as string]: "44rem",
-        ["--composer-radius" as string]: "24px",
-        ["--composer-padding" as string]: "10px",
-        ["--message-composer-gap" as string]: "12px",
-      }}
-    >
-      <ThreadPrimitive.Viewport
-        turnAnchor="top"
-        className="aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-4"
+    <UploadContext.Provider value={{ uploading, uploadFile }}>
+      <ThreadPrimitive.Root
+        className="aui-root aui-thread-root @container flex h-full flex-col bg-background"
+        style={{
+          ["--thread-max-width" as string]: "44rem",
+          ["--composer-radius" as string]: "24px",
+          ["--composer-padding" as string]: "10px",
+          ["--message-composer-gap" as string]: "12px",
+        }}
       >
-        <AuiIf condition={(s) => s.thread.isEmpty}>
-          <ThreadWelcome />
-        </AuiIf>
+        {/* Drag-and-drop zone wrapping the entire viewport */}
+        <div
+          className="relative flex flex-1 flex-col overflow-hidden"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {isDragging && (
+            <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-ring bg-background/85 backdrop-blur-sm">
+              <PaperclipIcon className="size-10 text-muted-foreground" />
+              <p className="text-sm font-medium text-muted-foreground">
+                Drop file to upload
+              </p>
+            </div>
+          )}
+          <ThreadPrimitive.Viewport
+            turnAnchor="top"
+            className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll scroll-smooth px-4 pt-4"
+          >
+            <AuiIf condition={(s) => s.thread.isEmpty}>
+              <ThreadWelcome />
+            </AuiIf>
 
-        <div className="mx-auto flex min-h-0 w-full max-w-(--thread-max-width) flex-1 flex-col justify-end">
-          <ThreadPrimitive.Messages>
-            {() => <ThreadMessage />}
-          </ThreadPrimitive.Messages>
+            <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col">
+              <div className="flex-1" />
+              <ThreadPrimitive.Messages>
+                {() => <ThreadMessage />}
+              </ThreadPrimitive.Messages>
+            </div>
+
+            <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-4 overflow-visible rounded-t-(--composer-radius) bg-background pt-(--message-composer-gap) pb-8 md:pb-10">
+              <ThreadScrollToBottom />
+              <Composer />
+            </ThreadPrimitive.ViewportFooter>
+          </ThreadPrimitive.Viewport>
         </div>
-
-        <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-4 overflow-visible rounded-t-(--composer-radius) bg-background pt-(--message-composer-gap) pb-8 md:pb-10">
-          <ThreadScrollToBottom />
-          <Composer />
-        </ThreadPrimitive.ViewportFooter>
-      </ThreadPrimitive.Viewport>
-    </ThreadPrimitive.Root>
+      </ThreadPrimitive.Root>
+    </UploadContext.Provider>
   );
 };
 
@@ -159,32 +250,15 @@ const AttachmentChip: FC<{ att: PendingAttachment; onRemove: () => void }> = ({
 // ---------------------------------------------------------------------------
 
 const Composer: FC = () => {
-  const { attachments, addAttachment, removeAttachment, clearAttachmentsUI } = useAttachments();
+  const { attachments, removeAttachment, clearAttachmentsUI } = useAttachments();
+  const { uploading, uploadFile } = useContext(UploadContext);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
-
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/files", { method: "POST", body: form });
-      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-      const data = await res.json();
-      addAttachment({
-        file_id: data.file_id,
-        filename: data.filename,
-        content_type: file.type.startsWith("image/") ? "image" : "document",
-      });
-    } catch (err) {
-      console.error("File upload failed:", err);
-    } finally {
-      setUploading(false);
-    }
+    await uploadFile(file);
   };
 
   return (
@@ -408,6 +482,9 @@ const AssistantMessage: FC = () => {
               if (part.toolName === "__file_output__")
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 return <FileDownloadCard input={(part as any).input ?? (part as any).args ?? {}} />;
+              if (part.toolName === "__preview__")
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return <Preview input={(part as any).input ?? (part as any).args ?? {}} />;
               return part.toolUI ?? <ToolFallback {...part} />;
             }
             return null;

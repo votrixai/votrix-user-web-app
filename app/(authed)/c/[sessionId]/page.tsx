@@ -39,6 +39,8 @@ function buildInitialMessages(
   const messages: UIMessage[] = [];
   const pendingAiFiles: Array<{ file_id: string; filename: string | null; mime_type: string | null }> = [];
 
+  const pendingPostPreviews: Array<Record<string, unknown>> = [];
+
   for (const e of events) {
     const key = `${sessionId}-${e.event_index}`;
     if (e.type === "user_message") {
@@ -63,18 +65,30 @@ function buildInitialMessages(
       }
     } else if (e.type === "ai_file") {
       try { pendingAiFiles.push(JSON.parse(e.body)); } catch {}
+    } else if (e.type === "ai_preview") {
+      try { pendingPostPreviews.push(JSON.parse(e.body)); } catch {}
     } else if (e.type === "ai_message") {
       const parts: UIMessage["parts"] = [{ type: "text", text: e.body }];
       for (const f of pendingAiFiles) {
         parts.push({
           type: "tool-call",
-          toolCallId: `${key}-${f.file_id}`,
+          toolCallId: `${key}-file-${f.file_id}`,
           toolName: "__file_output__",
           args: { file_id: f.file_id, filename: f.filename, mime_type: f.mime_type },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any);
       }
+      for (const [i, preview] of pendingPostPreviews.entries()) {
+        parts.push({
+          type: "tool-call",
+          toolCallId: `${key}-preview-${i}`,
+          toolName: "__preview__",
+          args: preview,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
+      }
       pendingAiFiles.length = 0;
+      pendingPostPreviews.length = 0;
       messages.push({ id: key, role: "assistant", parts });
     }
   }
@@ -91,7 +105,7 @@ function isAwaitingAssistantResponse(events: SessionEventResponse[]) {
       continue;
     }
 
-    if (event.type === "ai_message") {
+    if (event.type === "ai_message" || event.type === "error") {
       awaitingResponse = false;
     }
   }
